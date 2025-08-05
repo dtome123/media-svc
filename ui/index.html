@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MinIO HLS Stream with Auto Reload</title>
+    <style>
+      body {
+        background: #111;
+        color: #fff;
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        height: 100vh;
+        margin: 0;
+      }
+      input[type="text"] {
+        width: 80%;
+        max-width: 800px;
+        padding: 10px;
+        font-size: 1rem;
+        border-radius: 5px;
+        border: none;
+        margin-bottom: 10px;
+        box-sizing: border-box;
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 1rem;
+        border-radius: 5px;
+        border: none;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+        margin-bottom: 20px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      video {
+        width: 80%;
+        max-width: 800px;
+        border: 2px solid #fff;
+        border-radius: 8px;
+        background: black;
+      }
+      #error {
+        color: #f00;
+        margin-bottom: 10px;
+        min-height: 20px;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <input
+      id="urlInput"
+      type="text"
+      placeholder="Nhập URL HLS (.m3u8) để stream, ví dụ http://localhost:9000/videos/1754389822_284566_small/output.m3u8"
+    />
+    <button id="playBtn">Play</button>
+    <div id="error"></div>
+    <video id="video" controls></video>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+      const video = document.getElementById("video");
+      const urlInput = document.getElementById("urlInput");
+      const playBtn = document.getElementById("playBtn");
+      const errorDiv = document.getElementById("error");
+
+      let hls = null;
+
+      function clearError() {
+        errorDiv.innerText = "";
+      }
+
+      function showError(msg) {
+        errorDiv.innerText = msg;
+      }
+
+      function initHls(url) {
+        clearError();
+
+        if (!url) {
+          showError("Vui lòng nhập URL hợp lệ");
+          return;
+        }
+
+        if (hls) {
+          hls.destroy();
+          hls = null;
+        }
+
+        if (Hls.isSupported()) {
+          hls = new Hls({
+            maxBufferLength: 60,
+            maxMaxBufferLength: 120,
+            maxBufferSize: 60 * 1000 * 1000,
+            maxBufferHole: 0.5,
+          });
+
+          hls.loadSource(url);
+          hls.attachMedia(video);
+
+          hls.on(Hls.Events.MANIFEST_PARSED, function () {
+            video.play();
+          });
+
+          hls.on(Hls.Events.ERROR, function (event, data) {
+            console.error("[HLS.js error]", data);
+
+            if (data.fatal) {
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  console.warn("Network error - retry load");
+                  hls.startLoad();
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  console.warn("Media error - try recover");
+                  hls.recoverMediaError();
+                  break;
+                default:
+                  console.error("Fatal error - reload stream");
+                  hls.destroy();
+                  hls = null;
+                  initHls(url);
+                  break;
+              }
+            }
+          });
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = url;
+          video.addEventListener("loadedmetadata", function () {
+            video.play();
+          });
+        } else {
+          showError("Trình duyệt không hỗ trợ phát HLS.");
+        }
+      }
+
+      playBtn.addEventListener("click", () => {
+        const url = urlInput.value.trim();
+        initHls(url);
+      });
+    </script>
+  </body>
+</html>

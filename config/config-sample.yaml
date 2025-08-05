@@ -1,0 +1,8 @@
+server:
+  http_port: 8080
+  grpc_port: 8081
+
+db:
+  mongo:
+    dsn: mongodb+srv://admin:password@localhost:27017/
+    database: auth-db
