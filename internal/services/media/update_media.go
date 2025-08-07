@@ -23,7 +23,7 @@ func (i *impl) UpdateMedia(ctx context.Context, input UpdateMediaInput) error {
 		ID:          objectID,
 		Name:        input.Name,
 		Description: input.Description,
-		PlaybackUrl: input.PlaybackUrl,
+		Path:        input.PlaybackUrl,
 		UpdatedAt:   time.Now().UTC(),
 	}
 

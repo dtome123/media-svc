@@ -16,7 +16,7 @@ func (i *impl) CreateMedia(ctx context.Context, input CreateMediaInput) (string,
 	media := models.Media{
 		Name:        input.Name,
 		Description: input.Description,
-		PlaybackUrl: input.PlaybackUrl,
+		Path:        input.PlaybackUrl,
 		CreatedAt:   time.Now().UTC(),
 	}
 
