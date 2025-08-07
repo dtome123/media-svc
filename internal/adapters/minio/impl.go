@@ -301,3 +301,11 @@ func (i *impl) PresignGetObject(ctx context.Context, objectName string, expiry t
 	}
 	return url.String(), nil
 }
+
+func (i *impl) PresignGetStreamObject(ctx context.Context, objectName string, expiry time.Duration) (string, error) {
+	url, err := i.client.PresignedGetObject(ctx, i.streamBucket, objectName, expiry, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to presign GET URL for %s: %w", objectName, err)
+	}
+	return url.String(), nil
+}

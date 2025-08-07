@@ -7,6 +7,7 @@ import (
 	"media-svc/internal/port/rest/routes"
 	"media-svc/internal/services"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,6 +25,14 @@ func NewRestServer(cfg *config.Config, svc *services.Service) *RestServer {
 
 func (s *RestServer) Run() {
 	r := gin.Default()
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
 	handler := handlers.NewHandler(s.svc)
 

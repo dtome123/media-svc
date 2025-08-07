@@ -2,31 +2,44 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>MinIO HLS Stream with Auto Reload</title>
+    <title>MinIO HLS Stream</title>
     <style>
+      * {
+        box-sizing: border-box;
+      }
+
       body {
-        background: #111;
+        background-color: #111;
         color: #fff;
-        font-family: sans-serif;
+        font-family: "Segoe UI", sans-serif;
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 20px;
-        height: 100vh;
+        justify-content: start;
+        padding: 30px;
         margin: 0;
+        min-height: 100vh;
       }
+
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+      }
+
       input[type="text"] {
-        width: 80%;
+        width: 100%;
         max-width: 800px;
         padding: 10px;
         font-size: 1rem;
         border-radius: 5px;
-        border: none;
+        border: 1px solid #555;
         margin-bottom: 10px;
-        box-sizing: border-box;
+        background: #222;
+        color: #fff;
       }
+
       button {
-        padding: 10px 20px;
+        padding: 10px 25px;
         font-size: 1rem;
         border-radius: 5px;
         border: none;
@@ -35,33 +48,42 @@
         cursor: pointer;
         margin-bottom: 20px;
       }
+
       button:hover {
         background-color: #0056b3;
       }
+
       video {
-        width: 80%;
+        width: 100%;
         max-width: 800px;
         border: 2px solid #fff;
         border-radius: 8px;
-        background: black;
+        background-color: black;
       }
+
       #error {
-        color: #f00;
-        margin-bottom: 10px;
-        min-height: 20px;
+        color: #f33;
         font-weight: bold;
+        min-height: 24px;
+        margin-bottom: 10px;
+        text-align: center;
       }
     </style>
   </head>
   <body>
+    <h1>Phát video HLS từ MinIO / Proxy</h1>
+
     <input
       id="urlInput"
       type="text"
-      placeholder="Nhập URL HLS (.m3u8) để stream, ví dụ http://localhost:9000/videos/1754389822_284566_small/output.m3u8"
+      placeholder="Nhập URL .m3u8, ví dụ http://localhost:8080/proxy/videos/sample/output.m3u8"
     />
     <button id="playBtn">Play</button>
     <div id="error"></div>
-    <video id="video" controls></video>
+
+    <video id="video" controls autoplay muted>
+      <p>Trình duyệt của bạn không hỗ trợ video.</p>
+    </video>
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script>
@@ -84,15 +106,17 @@
         clearError();
 
         if (!url) {
-          showError("Vui lòng nhập URL hợp lệ");
+          showError("Vui lòng nhập URL hợp lệ.");
           return;
         }
 
+        // Clean up HLS instance if exists
         if (hls) {
           hls.destroy();
           hls = null;
         }
 
+        // HLS.js for modern browsers
         if (Hls.isSupported()) {
           hls = new Hls({
             maxBufferLength: 60,
@@ -110,39 +134,44 @@
 
           hls.on(Hls.Events.ERROR, function (event, data) {
             console.error("[HLS.js error]", data);
-
             if (data.fatal) {
               switch (data.type) {
                 case Hls.ErrorTypes.NETWORK_ERROR:
-                  console.warn("Network error - retry load");
+                  console.warn("Network error - retrying...");
                   hls.startLoad();
                   break;
                 case Hls.ErrorTypes.MEDIA_ERROR:
-                  console.warn("Media error - try recover");
+                  console.warn("Media error - attempting recovery...");
                   hls.recoverMediaError();
                   break;
                 default:
-                  console.error("Fatal error - reload stream");
+                  showError("Lỗi nghiêm trọng - thử lại.");
                   hls.destroy();
                   hls = null;
-                  initHls(url);
                   break;
               }
             }
           });
-        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        }
+        // Native support (Safari, iOS)
+        else if (video.canPlayType("application/vnd.apple.mpegurl")) {
           video.src = url;
-          video.addEventListener("loadedmetadata", function () {
-            video.play();
-          });
+          video.addEventListener("loadedmetadata", () => video.play());
         } else {
-          showError("Trình duyệt không hỗ trợ phát HLS.");
+          showError("Trình duyệt không hỗ trợ HLS.");
         }
       }
 
       playBtn.addEventListener("click", () => {
         const url = urlInput.value.trim();
         initHls(url);
+      });
+
+      urlInput.addEventListener("keyup", (e) => {
+        if (e.key === "Enter") {
+          const url = urlInput.value.trim();
+          initHls(url);
+        }
       });
     </script>
   </body>

@@ -13,4 +13,5 @@ type StorageAdapter interface {
 	GetObject(ctx context.Context, objectName string) ([]byte, error)
 	PresignPutObject(ctx context.Context, objectName string, expiry time.Duration) (string, error)
 	PresignGetObject(ctx context.Context, objectName string, expiry time.Duration) (string, error)
+	PresignGetStreamObject(ctx context.Context, objectName string, expiry time.Duration) (string, error)
 }

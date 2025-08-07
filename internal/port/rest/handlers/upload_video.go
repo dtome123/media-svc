@@ -15,7 +15,7 @@ func (s *impl) UploadVideo(c *gin.Context) {
 	}
 
 	services := s.svc.GetMediaSvc()
-	m3u8URL, err := services.UploadVideo(c, media.UploadVideoInput{
+	_, err = services.UploadVideo(c, media.UploadVideoInput{
 		File: file,
 	})
 	if err != nil {
@@ -24,7 +24,6 @@ func (s *impl) UploadVideo(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":   "Uploaded and transcoded successfully",
-		"streamUrl": m3u8URL,
+		"message": "Uploaded and transcoded successfully",
 	})
 }
