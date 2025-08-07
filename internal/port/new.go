@@ -5,21 +5,24 @@ import (
 	"media-svc/config"
 	"media-svc/internal/port/rest"
 	"media-svc/internal/services"
+	"media-svc/pkgs/rabbitmq"
 	"runtime/debug"
 
 	mongodb "github.com/dtome123/go-mongo-generic"
 )
 
 type Server struct {
-	cfg *config.Config
-	svc *services.Service
+	cfg          *config.Config
+	svc          *services.Service
+	rabbitClient *rabbitmq.Client
 }
 
-func NewServer(cfg *config.Config, db *mongodb.Database) *Server {
+func NewServer(cfg *config.Config, db *mongodb.Database, rabbitClient *rabbitmq.Client) *Server {
 
 	return &Server{
-		cfg: cfg,
-		svc: services.NewService(cfg, db),
+		cfg:          cfg,
+		rabbitClient: rabbitClient,
+		svc:          services.NewService(cfg, db, rabbitClient),
 	}
 }
 

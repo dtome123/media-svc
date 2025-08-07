@@ -12,4 +12,5 @@ type MediaService interface {
 	ListMedia(ctx context.Context, input ListMediaInput) ([]*models.Media, error)
 
 	UploadVideo(ctx context.Context, input UploadVideoInput) (string, error)
+	TranscodeVideo(ctx context.Context, input TranscodeVideoInput) (string, error)
 }

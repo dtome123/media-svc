@@ -1,8 +1,10 @@
 package main
 
 import (
+	"log"
 	"media-svc/config"
 	"media-svc/internal/port"
+	"media-svc/pkgs/rabbitmq"
 
 	mongodb "github.com/dtome123/go-mongo-generic"
 )
@@ -21,6 +23,11 @@ func main() {
 		panic(err)
 	}
 
-	server := port.NewServer(cfg, db)
+	rabbitClient, err := rabbitmq.New(cfg.RabbitMQ.DSN)
+	if err != nil {
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
+
+	server := port.NewServer(cfg, db, rabbitClient)
 	server.Run()
 }

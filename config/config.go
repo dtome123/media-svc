@@ -7,18 +7,25 @@ import (
 )
 
 type Config struct {
-	Server Server `mapstructure:"server"`
-	DB     DB     `mapstructure:"db"`
-	S3     S3     `mapstructure:"s3"`
+	Server   Server   `mapstructure:"server"`
+	DB       DB       `mapstructure:"db"`
+	S3       S3       `mapstructure:"s3"`
+	RabbitMQ RabbitMQ `mapstructure:"rabbitmq"`
+}
+
+type RabbitMQ struct {
+	DSN   string `mapstructure:"dsn"`
+	Queue string `mapstructure:"queue"`
 }
 
 type S3 struct {
-	Endpoint  string `mapstructure:"endpoint"`
-	Bucket    string `mapstructure:"bucket"`
-	AccessKey string `mapstructure:"access_key"`
-	SecretKey string `mapstructure:"secret_key"`
-	Insecure  bool   `mapstructure:"insecure"`
-	Region    string `mapstructure:"region"`
+	Endpoint     string `mapstructure:"endpoint"`
+	Bucket       string `mapstructure:"bucket"`
+	StreamBucket string `mapstructure:"stream_bucket"`
+	AccessKey    string `mapstructure:"access_key"`
+	SecretKey    string `mapstructure:"secret_key"`
+	Insecure     bool   `mapstructure:"insecure"`
+	Region       string `mapstructure:"region"`
 }
 
 type Server struct {
