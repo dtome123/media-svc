@@ -14,10 +14,10 @@ import (
 type Server struct {
 	cfg          *config.Config
 	svc          *services.Service
-	rabbitClient *rabbitmq.Client
+	rabbitClient *rabbitmq.Publisher
 }
 
-func NewServer(cfg *config.Config, db *mongodb.Database, rabbitClient *rabbitmq.Client) *Server {
+func NewServer(cfg *config.Config, db *mongodb.Database, rabbitClient *rabbitmq.Publisher) *Server {
 
 	return &Server{
 		cfg:          cfg,

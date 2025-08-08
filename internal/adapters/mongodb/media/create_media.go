@@ -5,7 +5,10 @@ import (
 	"media-svc/internal/models"
 )
 
-func (repo *MediaRepository) CreateMedia(ctx context.Context, media models.Media) error {
-	err := repo.mediaCol.InsertOne(ctx, media)
+func (repo *MediaRepository) CreateMedia(ctx context.Context, media *models.Media) error {
+
+	media.BeforeCreate()
+
+	err := repo.mediaCol.InsertOne(ctx, *media)
 	return err
 }

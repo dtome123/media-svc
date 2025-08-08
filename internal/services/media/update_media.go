@@ -26,7 +26,7 @@ func (i *impl) UpdateMedia(ctx context.Context, input UpdateMediaInput) error {
 
 	objectID, _ := primitive.ObjectIDFromHex(input.ID)
 
-	media := models.Media{
+	media := &models.Media{
 		ID:           objectID,
 		Name:         input.Name,
 		Description:  input.Description,

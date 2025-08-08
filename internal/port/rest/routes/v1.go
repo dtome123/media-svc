@@ -12,7 +12,8 @@ func RegisterV1Routes(r *gin.RouterGroup, handler handlers.Handler) {
 }
 
 func v1VideoRoutes(r *gin.RouterGroup, handler handlers.Handler) {
-	group := r.Group("videos")
-	group.POST("/upload", handler.UploadVideo)
-	group.GET("/stream/*file_path", handler.Stream)
+	videoRoutes := r.Group("videos")
+	videoRoutes.POST("/upload", handler.UploadVideo)
+	videoRoutes.GET("/:video_id/status", handler.GetVideoStatus)
+	videoRoutes.GET("/stream/*file_path", handler.Stream)
 }

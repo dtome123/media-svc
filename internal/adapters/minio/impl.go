@@ -20,44 +20,45 @@ import (
 )
 
 type impl struct {
-	cfg          *config.Config
-	client       *minio.Client
-	mediaBucket  string
-	streamBucket string
+	cfg    *config.Config
+	client *minio.Client
+	bucket string
 }
 
-func New(cfg *config.Config) StorageAdapter {
+// New tạo MinIO client mới, đảm bảo bucket tồn tại
+func New(cfg *config.Config, bucketName string) (StorageAdapter, error) {
 	client, err := minio.New(cfg.S3.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.S3.AccessKey, cfg.S3.SecretKey, ""),
 		Region: cfg.S3.Region,
-		Secure: cfg.S3.Insecure,
+		Secure: cfg.S3.Secure,
 	})
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to create minio client: %w", err)
 	}
 
-	ensureBucket(client, cfg.S3.Bucket)
-	ensureBucket(client, cfg.S3.StreamBucket)
+	if err := ensureBucket(client, bucketName); err != nil {
+		return nil, err
+	}
 
 	return &impl{
-		cfg:          cfg,
-		client:       client,
-		mediaBucket:  cfg.S3.Bucket,
-		streamBucket: cfg.S3.StreamBucket,
-	}
+		cfg:    cfg,
+		client: client,
+		bucket: bucketName,
+	}, nil
 }
 
-func ensureBucket(client *minio.Client, bucket string) {
+func ensureBucket(client *minio.Client, bucket string) error {
 	ctx := context.Background()
 	exists, err := client.BucketExists(ctx, bucket)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to check bucket exists: %w", err)
 	}
 	if !exists {
 		if err := client.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}); err != nil {
-			panic(err)
+			return fmt.Errorf("failed to create bucket: %w", err)
 		}
 	}
+	return nil
 }
 
 type fileJob struct {
@@ -65,41 +66,50 @@ type fileJob struct {
 	objectName string
 }
 
-// UploadDir uploads all files under the given directory to the S3 bucket.
-// It preserves the directory structure and uploads files concurrently.
-// The S3 object keys will be prefixed with the given objectPrefix.
-// UploadDir uploads all files under the given directory to the S3 bucket.
-// It preserves the directory structure and uses the relative paths as object keys (no prefix).
-func (i *impl) UploadDir(ctx context.Context, srcDir, targetDir string) error {
+func getFilesFromDir(srcDir, targetDir string) ([]fileJob, error) {
 	var files []fileJob
 
-	// Walk qua tất cả file trong thư mục
-	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return err
-		}
-
-		relPath, err := filepath.Rel(srcDir, path)
+	err := filepath.Walk(srcDir, func(fullPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-
+		if info.IsDir() {
+			return nil
+		}
+		relPath, err := filepath.Rel(srcDir, fullPath)
+		if err != nil {
+			return err
+		}
 		objectName := filepath.ToSlash(relPath)
 		if targetDir != "" {
-			objectName = filepath.ToSlash(filepath.Join(targetDir, relPath))
+			objectName = filepath.ToSlash(path.Join(targetDir, relPath))
 		}
-
 		files = append(files, fileJob{
-			localPath:  path,
+			localPath:  fullPath,
 			objectName: objectName,
 		})
 		return nil
 	})
-	if err != nil {
-		return err
-	}
 
-	const concurrency = 5
+	return files, err
+}
+
+func getContentType(filename string) string {
+	ext := filepath.Ext(filename)
+	switch ext {
+	case ".m3u8":
+		return "application/vnd.apple.mpegurl"
+	case ".ts":
+		return "video/MP2T"
+	default:
+		if ct := mime.TypeByExtension(ext); ct != "" {
+			return ct
+		}
+		return "application/octet-stream"
+	}
+}
+
+func (i *impl) uploadFilesConcurrently(ctx context.Context, files []fileJob, concurrency int) error {
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 	var errsMu sync.Mutex
@@ -108,7 +118,6 @@ func (i *impl) UploadDir(ctx context.Context, srcDir, targetDir string) error {
 	for _, f := range files {
 		wg.Add(1)
 		sem <- struct{}{}
-
 		go func(f fileJob) {
 			defer wg.Done()
 			defer func() { <-sem }()
@@ -130,21 +139,9 @@ func (i *impl) UploadDir(ctx context.Context, srcDir, targetDir string) error {
 				return
 			}
 
-			ext := filepath.Ext(f.localPath)
-			var contentType string
-			switch ext {
-			case ".m3u8":
-				contentType = "application/vnd.apple.mpegurl"
-			case ".ts":
-				contentType = "video/MP2T"
-			default:
-				contentType = mime.TypeByExtension(ext)
-				if contentType == "" {
-					contentType = "application/octet-stream"
-				}
-			}
+			contentType := getContentType(f.localPath)
 
-			_, err = i.client.PutObject(ctx, i.mediaBucket, f.objectName, file, stat.Size(), minio.PutObjectOptions{
+			_, err = i.client.PutObject(ctx, i.bucket, f.objectName, file, stat.Size(), minio.PutObjectOptions{
 				ContentType: contentType,
 			})
 			if err != nil {
@@ -164,105 +161,19 @@ func (i *impl) UploadDir(ctx context.Context, srcDir, targetDir string) error {
 	return nil
 }
 
-func (i *impl) UploadStreamDir(ctx context.Context, srcDir, targetDir string) (string, error) {
-	var files []fileJob
-
-	// Walk qua tất cả file trong thư mục
-	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return err
-		}
-
-		relPath, err := filepath.Rel(srcDir, path)
-		if err != nil {
-			return err
-		}
-
-		objectName := filepath.ToSlash(relPath)
-		if targetDir != "" {
-			objectName = filepath.ToSlash(filepath.Join(targetDir, relPath))
-		}
-
-		files = append(files, fileJob{
-			localPath:  path,
-			objectName: objectName,
-		})
-		return nil
-	})
+// UploadDir upload toàn bộ folder srcDir vào bucket, targetDir là prefix trên bucket
+func (i *impl) UploadDir(ctx context.Context, srcDir, targetDir string) (string, error) {
+	files, err := getFilesFromDir(srcDir, targetDir)
 	if err != nil {
 		return "", err
 	}
-
-	const concurrency = 5
-	sem := make(chan struct{}, concurrency)
-	var wg sync.WaitGroup
-	var errsMu sync.Mutex
-	var errs []error
-
-	for _, f := range files {
-		wg.Add(1)
-		sem <- struct{}{}
-
-		go func(f fileJob) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			file, err := os.Open(f.localPath)
-			if err != nil {
-				errsMu.Lock()
-				errs = append(errs, fmt.Errorf("failed to open %s: %w", f.localPath, err))
-				errsMu.Unlock()
-				return
-			}
-			defer file.Close()
-
-			stat, err := file.Stat()
-			if err != nil {
-				errsMu.Lock()
-				errs = append(errs, fmt.Errorf("failed to stat %s: %w", f.localPath, err))
-				errsMu.Unlock()
-				return
-			}
-
-			ext := filepath.Ext(f.localPath)
-			var contentType string
-			switch ext {
-			case ".m3u8":
-				contentType = "application/vnd.apple.mpegurl"
-			case ".ts":
-				contentType = "video/MP2T"
-			default:
-				contentType = mime.TypeByExtension(ext)
-				if contentType == "" {
-					contentType = "application/octet-stream"
-				}
-			}
-
-			_, err = i.client.PutObject(ctx, i.streamBucket, f.objectName, file, stat.Size(), minio.PutObjectOptions{
-				ContentType: contentType,
-			})
-			if err != nil {
-				errsMu.Lock()
-				errs = append(errs, fmt.Errorf("failed to upload %s: %w", f.objectName, err))
-				errsMu.Unlock()
-				return
-			}
-		}(f)
-	}
-
-	wg.Wait()
-
-	if len(errs) > 0 {
-		return "", errors.Join(errs...)
-	}
-	return path.Join(i.streamBucket, targetDir), nil
+	return fmt.Sprintf("%s/%s", i.bucket, targetDir), i.uploadFilesConcurrently(ctx, files, 5)
 }
 
 func (i *impl) PutObject(ctx context.Context, objectName string, reader io.Reader, size int64) (string, error) {
-
 	contentType := utils.DetectContentTypeByFileName(objectName)
 
-	_, err := i.client.PutObject(ctx, i.mediaBucket, objectName, reader, size, minio.PutObjectOptions{
+	_, err := i.client.PutObject(ctx, i.bucket, objectName, reader, size, minio.PutObjectOptions{
 		ContentType: contentType,
 	})
 	if err != nil {
@@ -272,7 +183,7 @@ func (i *impl) PutObject(ctx context.Context, objectName string, reader io.Reade
 }
 
 func (i *impl) GetObject(ctx context.Context, objectName string) ([]byte, error) {
-	obj, err := i.client.GetObject(ctx, i.mediaBucket, objectName, minio.GetObjectOptions{})
+	obj, err := i.client.GetObject(ctx, i.bucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get object %s: %w", objectName, err)
 	}
@@ -287,7 +198,7 @@ func (i *impl) GetObject(ctx context.Context, objectName string) ([]byte, error)
 }
 
 func (i *impl) PresignPutObject(ctx context.Context, objectName string, expiry time.Duration) (string, error) {
-	url, err := i.client.PresignedPutObject(ctx, i.mediaBucket, objectName, expiry)
+	url, err := i.client.PresignedPutObject(ctx, i.bucket, objectName, expiry)
 	if err != nil {
 		return "", fmt.Errorf("failed to presign PUT URL for %s: %w", objectName, err)
 	}
@@ -295,15 +206,7 @@ func (i *impl) PresignPutObject(ctx context.Context, objectName string, expiry t
 }
 
 func (i *impl) PresignGetObject(ctx context.Context, objectName string, expiry time.Duration) (string, error) {
-	url, err := i.client.PresignedGetObject(ctx, i.mediaBucket, objectName, expiry, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to presign GET URL for %s: %w", objectName, err)
-	}
-	return url.String(), nil
-}
-
-func (i *impl) PresignGetStreamObject(ctx context.Context, objectName string, expiry time.Duration) (string, error) {
-	url, err := i.client.PresignedGetObject(ctx, i.streamBucket, objectName, expiry, nil)
+	url, err := i.client.PresignedGetObject(ctx, i.bucket, objectName, expiry, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to presign GET URL for %s: %w", objectName, err)
 	}

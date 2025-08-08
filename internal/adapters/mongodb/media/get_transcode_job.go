@@ -10,16 +10,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func (svc *MediaRepository) GetMedia(ctx context.Context, id string) (*models.Media, error) {
+func (svc *MediaRepository) GetTranscodeJobByMediaID(ctx context.Context, mediaId string) (*models.TranscodeJob, error) {
 
-	oid, err := primitive.ObjectIDFromHex(id)
+	oid, err := primitive.ObjectIDFromHex(mediaId)
 	if err != nil {
 		return nil, err
 	}
 
-	media, err := svc.mediaCol.FindOne(ctx, bson.M{
-		"_id": oid,
-	}, options.FindOne())
+	model, err := svc.transcodeJobCol.FindOne(ctx, bson.M{
+		"media_id": oid,
+	}, options.FindOne().SetHint(IndexTranscodeJobMediaID))
 
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -29,5 +29,5 @@ func (svc *MediaRepository) GetMedia(ctx context.Context, id string) (*models.Me
 		return nil, err
 	}
 
-	return media, nil
+	return model, nil
 }

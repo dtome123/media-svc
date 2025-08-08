@@ -9,9 +9,9 @@ type PresignGetObjectInput struct {
 	FilePath string
 }
 
-func (i *impl) PresignGetObject(ctx context.Context, input PresignGetObjectInput) (string, error) {
+func (i *impl) PresignGetStreamObject(ctx context.Context, input PresignGetObjectInput) (string, error) {
 
-	presignUrl, err := i.storageAdapter.PresignGetStreamObject(ctx, input.FilePath, 5*time.Minute)
+	presignUrl, err := i.streamStorage.PresignGetObject(ctx, input.FilePath, 5*time.Minute)
 	if err != nil {
 		return "", err
 	}

@@ -24,7 +24,7 @@ type S3 struct {
 	StreamBucket string `mapstructure:"stream_bucket"`
 	AccessKey    string `mapstructure:"access_key"`
 	SecretKey    string `mapstructure:"secret_key"`
-	Insecure     bool   `mapstructure:"insecure"`
+	Secure       bool   `mapstructure:"secure"`
 	Region       string `mapstructure:"region"`
 }
 

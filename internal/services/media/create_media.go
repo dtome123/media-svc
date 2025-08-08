@@ -20,7 +20,7 @@ type CreateMediaInput struct {
 }
 
 func (i *impl) CreateMedia(ctx context.Context, input CreateMediaInput) (string, error) {
-	media := models.Media{
+	media := &models.Media{
 		Name:         input.Name,
 		Description:  input.Description,
 		Path:         input.Path,

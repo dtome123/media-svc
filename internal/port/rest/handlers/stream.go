@@ -16,7 +16,7 @@ func (s *impl) Stream(c *gin.Context) {
 	filePath = strings.TrimPrefix(filePath, "/")
 
 	services := s.svc.GetMediaSvc()
-	presignedURL, err := services.PresignGetObject(c, media.PresignGetObjectInput{
+	presignedURL, err := services.PresignGetStreamObject(c, media.PresignGetObjectInput{
 		FilePath: filePath,
 	})
 	if err != nil {

@@ -1,23 +1,25 @@
 package handlers
 
 import (
-	"media-svc/internal/services/media"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-func (s *impl) UploadVideo(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "File is required"})
+type GetMediaRequest struct {
+	MediaID string `uri:"media_id"`
+}
+
+func (s *impl) GetMedia(c *gin.Context) {
+
+	var req GetMediaRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	services := s.svc.GetMediaSvc()
-	media, err := services.UploadVideo(c, media.UploadVideoInput{
-		File: file,
-	})
+	media, err := services.GetMedia(c, req.MediaID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Upload failed"})
 		return

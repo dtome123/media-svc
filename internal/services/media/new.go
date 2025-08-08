@@ -8,17 +8,25 @@ import (
 )
 
 type impl struct {
-	cfg            *config.Config
-	mediaRepo      *media.MediaRepository
-	storageAdapter minio.StorageAdapter
-	rabbitClient   *rabbitmq.Client
+	cfg           *config.Config
+	mediaRepo     *media.MediaRepository
+	mediaStorage  minio.StorageAdapter
+	streamStorage minio.StorageAdapter
+	rabbitClient  *rabbitmq.Publisher
 }
 
-func NewService(cfg *config.Config, mediaRepo *media.MediaRepository, storageAdapter minio.StorageAdapter, rabbitClient *rabbitmq.Client) MediaService {
+func NewService(
+	cfg *config.Config,
+	mediaRepo *media.MediaRepository,
+	mediaStorage minio.StorageAdapter,
+	streamStorage minio.StorageAdapter,
+	rabbitClient *rabbitmq.Publisher,
+) MediaService {
 	return &impl{
-		cfg:            cfg,
-		mediaRepo:      mediaRepo,
-		storageAdapter: storageAdapter,
-		rabbitClient:   rabbitClient,
+		cfg:           cfg,
+		mediaRepo:     mediaRepo,
+		mediaStorage:  mediaStorage,
+		streamStorage: streamStorage,
+		rabbitClient:  rabbitClient,
 	}
 }

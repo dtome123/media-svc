@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"media-svc/config"
+	"media-svc/internal/job/transcode"
 	"media-svc/internal/services"
 	"media-svc/internal/services/media"
 	"media-svc/internal/types"
@@ -35,46 +36,50 @@ func main() {
 	}
 
 	// Initialize RabbitMQ client
-	client, err := rabbitmq.New(cfg.RabbitMQ.DSN)
+	client, err := rabbitmq.NewConsumer(cfg.RabbitMQ.DSN)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 	}
 
 	// Initialize service layer
-	service := services.NewService(cfg, db, client)
+	service := services.NewService(cfg, db, nil)
 
-	// Create context with cancel to control lifecycle
+	// Create orchestrator with desired number of workers and queue depth
+	workerCount := 4
+	queueDepth := 100
+	orcTranscode := transcode.New(service, workerCount, queueDepth)
+
+	// Start the orchestrator (start worker goroutines)
+	orcTranscode.Start()
+
+	// Context & WaitGroup to manage lifecycle of RabbitMQ consumer
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 
-	// Start consumer goroutine to process jobs from queue
+	// Start consumer goroutine to consume from RabbitMQ
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+
 		err := client.Consume(ctx, cfg.RabbitMQ.Queue, func(data []byte) error {
 			var job types.TranscodeJob
-
-			// Parse job from JSON payload
 			if err := json.Unmarshal(data, &job); err != nil {
 				return fmt.Errorf("invalid job format: %w", err)
 			}
 
 			log.Printf("Received job: %+v", job)
-
-			// Call transcoding service
-			_, err := service.GetMediaSvc().TranscodeVideo(context.Background(), media.TranscodeVideoInput{
-				FilePath: job.InputPath,
-			})
-			if err != nil {
-				return fmt.Errorf("transcode failed: %w", err)
-			}
+			orcTranscode.AddJob(media.TranscodeVideoInput{MediaID: job.MediaID})
 
 			return nil
 		})
 
-		// Log when consumer exits
 		if err != nil {
-			log.Printf("Consumer exited with error: %v", err)
+			// Nếu lỗi là channel closed do ctx bị cancel thì có thể không cần log lỗi nặng
+			if err.Error() == "channel closed" {
+				log.Println("Consumer stopped due to channel close (likely normal shutdown)")
+			} else {
+				log.Printf("Consumer exited with error: %v", err)
+			}
 		} else {
 			log.Println("Consumer exited cleanly")
 		}
@@ -84,17 +89,17 @@ func main() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
-	// Block until signal received
 	<-sig
 	log.Println("Worker shutting down...")
 
-	// Cancel context to stop consumer
+	// Stop consumer
 	cancel()
-
-	// Wait for consumer goroutine to finish
 	wg.Wait()
 
-	// Close RabbitMQ connection
+	// Stop orchestrator and wait for all workers to finish
+	orcTranscode.Stop()
+
+	// Close RabbitMQ client connection
 	client.Close()
 
 	log.Println("Worker stopped.")

@@ -13,22 +13,23 @@ import (
 type Service struct {
 	cfg          *config.Config
 	mediaSvc     mediaSvc.MediaService
-	rabbitClient *rabbitmq.Client
+	rabbitClient *rabbitmq.Publisher
 }
 
 func NewService(
 	cfg *config.Config,
 	db *mongodb.Database,
-	rabbitClient *rabbitmq.Client,
+	rabbitClient *rabbitmq.Publisher,
 ) *Service {
 
 	mediaRepo := media.NewMediaRepository(db)
-	storageAdapter := minio.New(cfg)
+	mediaStorage, _ := minio.New(cfg, cfg.S3.Bucket)
+	streamStorage, _ := minio.New(cfg, cfg.S3.StreamBucket)
 
 	return &Service{
 		cfg:          cfg,
 		rabbitClient: rabbitClient,
-		mediaSvc:     mediaSvc.NewService(cfg, mediaRepo, storageAdapter, rabbitClient),
+		mediaSvc:     mediaSvc.NewService(cfg, mediaRepo, mediaStorage, streamStorage, rabbitClient),
 	}
 }
 

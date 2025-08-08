@@ -23,7 +23,7 @@ func main() {
 		panic(err)
 	}
 
-	rabbitClient, err := rabbitmq.New(cfg.RabbitMQ.DSN)
+	rabbitClient, err := rabbitmq.NewPublisher(cfg.RabbitMQ.DSN)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 	}

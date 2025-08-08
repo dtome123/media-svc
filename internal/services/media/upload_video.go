@@ -16,47 +16,48 @@ type UploadVideoInput struct {
 	File *multipart.FileHeader
 }
 
-func (i *impl) UploadVideo(ctx context.Context, input UploadVideoInput) (string, error) {
+func (i *impl) UploadVideo(ctx context.Context, input UploadVideoInput) (*models.Media, error) {
 	filename := fmt.Sprintf("%d_%s", time.Now().Unix(), filepath.Base(input.File.Filename))
 
 	filePath := filepath.Join("videos", filename)
 
 	src, err := input.File.Open()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer src.Close()
 
-	filePath, err = i.storageAdapter.PutObject(ctx, filePath, src, input.File.Size)
+	filePath, err = i.mediaStorage.PutObject(ctx, filePath, src, input.File.Size)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	media := models.Media{
+	media := &models.Media{
 		Name:        input.File.Filename,
 		Description: input.File.Filename,
 		Path:        filePath,
+		Size:        input.File.Size,
 		ContentType: input.File.Header.Get("Content-Type"),
 	}
 	err = i.mediaRepo.CreateMedia(ctx, media)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	job := types.TranscodeJob{
-		InputPath: filePath,
+		MediaID: media.ID.Hex(),
 	}
 
 	data, err := json.Marshal(job)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	err = i.rabbitClient.Publish(i.cfg.RabbitMQ.Queue, data)
 	if err != nil {
 		log.Println("Failed to publish job:", err)
-		return "", err
+		return nil, err
 	}
 
-	return filePath, nil
+	return media, nil
 }

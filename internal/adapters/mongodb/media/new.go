@@ -20,6 +20,7 @@ func NewMediaRepository(db *mongodb.Database) *MediaRepository {
 	transcodeJobCol.EnsureIndexes(GetTranscodeJobIndexes())
 
 	return &MediaRepository{
-		mediaCol: mediaCol,
+		mediaCol:        mediaCol,
+		transcodeJobCol: transcodeJobCol,
 	}
 }
