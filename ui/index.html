@@ -2,176 +2,99 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>MinIO HLS Stream</title>
+    <title>MinIO HLS Stream - Video.js</title>
+    <link
+      href="https://unpkg.com/video.js/dist/video-js.css"
+      rel="stylesheet"
+    />
     <style>
-      * {
-        box-sizing: border-box;
-      }
-
       body {
         background-color: #111;
-        color: #fff;
-        font-family: "Segoe UI", sans-serif;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: start;
-        padding: 30px;
-        margin: 0;
-        min-height: 100vh;
-      }
-
-      h1 {
-        font-size: 1.5rem;
-        margin-bottom: 20px;
-      }
-
-      input[type="text"] {
-        width: 100%;
-        max-width: 800px;
-        padding: 10px;
-        font-size: 1rem;
-        border-radius: 5px;
-        border: 1px solid #555;
-        margin-bottom: 10px;
-        background: #222;
-        color: #fff;
-      }
-
-      button {
-        padding: 10px 25px;
-        font-size: 1rem;
-        border-radius: 5px;
-        border: none;
-        background-color: #007bff;
         color: white;
-        cursor: pointer;
-        margin-bottom: 20px;
-      }
-
-      button:hover {
-        background-color: #0056b3;
-      }
-
-      video {
-        width: 100%;
-        max-width: 800px;
-        border: 2px solid #fff;
-        border-radius: 8px;
-        background-color: black;
-      }
-
-      #error {
-        color: #f33;
-        font-weight: bold;
-        min-height: 24px;
-        margin-bottom: 10px;
+        font-family: Arial, sans-serif;
         text-align: center;
+        padding: 30px;
+      }
+      .vjs-menu-button {
+        text-transform: capitalize;
+      }
+      input,
+      button {
+        padding: 8px;
+        font-size: 14px;
+        border-radius: 4px;
+        border: 1px solid #555;
+        margin: 5px;
+        background: #222;
+        color: white;
+      }
+      button {
+        background: #007bff;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0056b3;
       }
     </style>
   </head>
   <body>
     <h1>Phát video HLS từ MinIO / Proxy</h1>
-
     <input
       id="urlInput"
       type="text"
       placeholder="Nhập URL .m3u8, ví dụ http://localhost:8080/proxy/videos/sample/output.m3u8"
+      size="80"
     />
     <button id="playBtn">Play</button>
-    <div id="error"></div>
 
-    <video id="video" controls autoplay muted>
-      <p>Trình duyệt của bạn không hỗ trợ video.</p>
+    <video
+      id="videoPlayer"
+      class="video-js vjs-default-skin"
+      controls
+      preload="auto"
+      width="800"
+      height="450"
+      data-setup="{}"
+    >
+      <p class="vjs-no-js">Trình duyệt của bạn không hỗ trợ video.</p>
     </video>
 
+    <!-- Video.js + Plugins -->
+    <script src="https://unpkg.com/video.js/dist/video.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://unpkg.com/videojs-contrib-quality-levels/dist/videojs-contrib-quality-levels.min.js"></script>
+    <script src="https://unpkg.com/videojs-hls-quality-selector/dist/videojs-hls-quality-selector.min.js"></script>
+
     <script>
-      const video = document.getElementById("video");
-      const urlInput = document.getElementById("urlInput");
-      const playBtn = document.getElementById("playBtn");
-      const errorDiv = document.getElementById("error");
-
-      let hls = null;
-
-      function clearError() {
-        errorDiv.innerText = "";
-      }
-
-      function showError(msg) {
-        errorDiv.innerText = msg;
-      }
-
-      function initHls(url) {
-        clearError();
-
-        if (!url) {
-          showError("Vui lòng nhập URL hợp lệ.");
-          return;
-        }
-
-        // Clean up HLS instance if exists
-        if (hls) {
-          hls.destroy();
-          hls = null;
-        }
-
-        // HLS.js for modern browsers
-        if (Hls.isSupported()) {
-          hls = new Hls({
-            maxBufferLength: 60,
-            maxMaxBufferLength: 120,
-            maxBufferSize: 60 * 1000 * 1000,
-            maxBufferHole: 0.5,
-          });
-
-          hls.loadSource(url);
-          hls.attachMedia(video);
-
-          hls.on(Hls.Events.MANIFEST_PARSED, function () {
-            video.play();
-          });
-
-          hls.on(Hls.Events.ERROR, function (event, data) {
-            console.error("[HLS.js error]", data);
-            if (data.fatal) {
-              switch (data.type) {
-                case Hls.ErrorTypes.NETWORK_ERROR:
-                  console.warn("Network error - retrying...");
-                  hls.startLoad();
-                  break;
-                case Hls.ErrorTypes.MEDIA_ERROR:
-                  console.warn("Media error - attempting recovery...");
-                  hls.recoverMediaError();
-                  break;
-                default:
-                  showError("Lỗi nghiêm trọng - thử lại.");
-                  hls.destroy();
-                  hls = null;
-                  break;
-              }
-            }
-          });
-        }
-        // Native support (Safari, iOS)
-        else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-          video.src = url;
-          video.addEventListener("loadedmetadata", () => video.play());
-        } else {
-          showError("Trình duyệt không hỗ trợ HLS.");
-        }
-      }
-
-      playBtn.addEventListener("click", () => {
-        const url = urlInput.value.trim();
-        initHls(url);
+      const player = videojs("videoPlayer", {
+        fluid: true,
+        html5: {
+          hls: {
+            overrideNative: true,
+          },
+          nativeAudioTracks: false,
+          nativeVideoTracks: false,
+        },
       });
 
-      urlInput.addEventListener("keyup", (e) => {
-        if (e.key === "Enter") {
-          const url = urlInput.value.trim();
-          initHls(url);
+      // Thêm selector chất lượng
+      player.hlsQualitySelector({
+        displayCurrentQuality: true,
+      });
+
+      // Xử lý nút Play
+      document.getElementById("playBtn").addEventListener("click", () => {
+        const url = document.getElementById("urlInput").value.trim();
+        if (!url) {
+          alert("Vui lòng nhập URL hợp lệ");
+          return;
         }
+        player.src({
+          src: url,
+          type: "application/x-mpegURL",
+        });
+        player.play();
       });
     </script>
   </body>

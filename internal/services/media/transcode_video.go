@@ -66,7 +66,7 @@ func (i *impl) TranscodeVideo(ctx context.Context, input TranscodeVideoInput) (s
 	}
 
 	// Upload the transcoded directory back to storage
-	targetDir := filepath.Join("videos", filename)
+	targetDir := filepath.Join(filename)
 	dirPath, err := i.streamStorage.UploadDir(context.Background(), outputDir, targetDir)
 	if err != nil {
 		return "", fmt.Errorf("upload transcode dir: %w", err)

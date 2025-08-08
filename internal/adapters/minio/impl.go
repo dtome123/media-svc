@@ -167,7 +167,7 @@ func (i *impl) UploadDir(ctx context.Context, srcDir, targetDir string) (string,
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s/%s", i.bucket, targetDir), i.uploadFilesConcurrently(ctx, files, 5)
+	return fmt.Sprintf("%s", targetDir), i.uploadFilesConcurrently(ctx, files, 5)
 }
 
 func (i *impl) PutObject(ctx context.Context, objectName string, reader io.Reader, size int64) (string, error) {
