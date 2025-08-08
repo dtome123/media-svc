@@ -13,7 +13,7 @@ type MediaService interface {
 
 	PresignGetStreamObject(ctx context.Context, input PresignGetObjectInput) (string, error)
 	UploadVideo(ctx context.Context, input UploadVideoInput) (*models.Media, error)
-	TranscodeVideo(ctx context.Context, input TranscodeVideoInput) (string, error)
+	TranscodeVideo(ctx context.Context, input TranscodeVideoInput) (TranscodeVideoOutput, error)
 	UpdateTranscodeJobError(ctx context.Context, input UpdateTranscodeJobErrorInput) error
 	UpdateTranscodeJobSuccess(ctx context.Context, input UpdateTranscodeJobSuccessInput) error
 	GetVideoStatus(ctx context.Context, videoId string) (GetVideoStatusResponse, error)

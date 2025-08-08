@@ -21,7 +21,7 @@ func (i *impl) UpdateTranscodeJobError(ctx context.Context, input UpdateTranscod
 		return nil
 	}
 
-	job.Status = types.TranscodeJobStatusDone.String()
+	job.Status = types.TranscodeJobStatusError.String()
 	job.Error = input.Err
 
 	err = i.mediaRepo.UpdateTranscodeJob(ctx, job)

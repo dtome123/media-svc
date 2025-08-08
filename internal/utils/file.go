@@ -43,3 +43,7 @@ func RemoveFile(filePath string) error {
 	}
 	return nil
 }
+
+func RemoveDir(dir string) error {
+	return os.RemoveAll(dir)
+}

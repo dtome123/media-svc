@@ -10,6 +10,7 @@ import (
 type UpdateTranscodeJobSuccessInput struct {
 	MediaID    string
 	OutputPath string
+	Renditions []types.Rendition
 }
 
 func (i *impl) UpdateTranscodeJobSuccess(ctx context.Context, input UpdateTranscodeJobSuccessInput) error {
@@ -38,11 +39,26 @@ func (i *impl) UpdateTranscodeJobSuccess(ctx context.Context, input UpdateTransc
 		return err
 	}
 
-	media.TranscodeSource = &models.TranscodeSource{
-		FilePath: input.OutputPath,
+	var renditions []models.Rendition
+	for _, rendition := range input.Renditions {
+		renditions = append(renditions, models.Rendition{
+			Width:        rendition.Width,
+			Height:       rendition.Height,
+			Name:         rendition.Name,
+			VideoBitrate: rendition.VideoBitrate,
+			AudioBitrate: rendition.AudioBitrate,
+		})
 	}
 
-	i.mediaRepo.UpdateMedia(ctx, media)
+	media.TranscodeSource = &models.TranscodeSource{
+		FilePath:   input.OutputPath,
+		Renditions: renditions,
+	}
+
+	err = i.mediaRepo.UpdateMedia(ctx, media)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

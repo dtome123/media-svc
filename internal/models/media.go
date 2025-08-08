@@ -42,5 +42,14 @@ func (coll *Media) BeforeUpdate() {
 }
 
 type TranscodeSource struct {
-	FilePath string `bson:"file_path" json:"file_path"`
+	FilePath   string      `bson:"file_path" json:"file_path"`
+	Renditions []Rendition `bson:"renditions" json:"renditions"`
+}
+
+type Rendition struct {
+	Name         string `bson:"name" json:"name"`
+	Width        int    `bson:"width" json:"width"`
+	Height       int    `bson:"height" json:"height"`
+	VideoBitrate string `bson:"video_bitrate" json:"video_bitrate"`
+	AudioBitrate string `bson:"audio_bitrate" json:"audio_bitrate"`
 }

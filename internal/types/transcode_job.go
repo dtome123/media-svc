@@ -16,3 +16,11 @@ const (
 func (t TranscodeJobStatus) String() string {
 	return string(t)
 }
+
+type Rendition struct {
+	Name         string
+	Width        int
+	Height       int
+	VideoBitrate string
+	AudioBitrate string
+}

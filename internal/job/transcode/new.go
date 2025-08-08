@@ -12,13 +12,19 @@ import (
 
 // Job holds information about a transcoding job
 type Job struct {
-	MediaID   string
-	Status    string
-	Error     string
-	Result    string
-	CreatedAt time.Time
-	StartedAt time.Time
-	DoneAt    time.Time
+	MediaID    string
+	Status     string
+	Error      string
+	Result     transcodeResult
+	CreatedAt  time.Time
+	StartedAt  time.Time
+	DoneAt     time.Time
+	Renditions []types.Rendition
+}
+
+type transcodeResult struct {
+	sourcePath string
+	renditions []types.Rendition
 }
 
 // Orchestrator manages transcoding jobs and worker pool
@@ -133,7 +139,8 @@ func (o *Orchestrator) processSuccess() {
 		case msgs := <-o.successChan:
 			o.svc.GetMediaSvc().UpdateTranscodeJobSuccess(context.Background(), media.UpdateTranscodeJobSuccessInput{
 				MediaID:    msgs.MediaID,
-				OutputPath: msgs.Result,
+				OutputPath: msgs.Result.sourcePath,
+				Renditions: msgs.Result.renditions,
 			})
 		}
 	}
@@ -190,7 +197,7 @@ func (o *Orchestrator) handleJob(input media.TranscodeVideoInput) {
 
 	// Call the TranscodeVideo service method
 
-	path, err := o.svc.GetMediaSvc().TranscodeVideo(context.Background(), input)
+	result, err := o.svc.GetMediaSvc().TranscodeVideo(context.Background(), input)
 
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -206,7 +213,10 @@ func (o *Orchestrator) handleJob(input media.TranscodeVideoInput) {
 
 	job.Status = types.TranscodeJobStatusDone.String()
 	job.DoneAt = time.Now()
-	job.Result = path
+	job.Result = transcodeResult{
+		sourcePath: result.Path,
+		renditions: result.Renditions,
+	}
 	o.onSuccess(job)
 	log.Printf("transcode done for %s", input.MediaID)
 
